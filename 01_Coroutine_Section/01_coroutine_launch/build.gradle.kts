@@ -42,6 +42,7 @@ dependencies {
     implementation(libs.material)
     implementation(libs.activity)
     /** 协程依赖--直接添加这个 自己可以修复为新的写法。
+     * 会自动转化为toml 格式的。
      * implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0-RC")
      * implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0-RC")
      */
