@@ -8,8 +8,12 @@ import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import java.util.concurrent.Executors
 import kotlin.concurrent.thread
+import kotlin.coroutines.EmptyCoroutineContext
 
 class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -22,8 +26,55 @@ class MainActivity : AppCompatActivity() {
             insets
         }
 
+        coroutineSwitch()
 
     }
+
+
+    /**
+     * 2.协程:
+     *  > 1. 首先添加依赖:文档说明如何添加依赖::https://github.com/Kotlin/kotlinx.coroutines/blob/master/README.md#using-in-your-projects
+     *  implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0-RC")   服务端的只要这个就可以.
+     *  implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0-RC")  安卓端需要这个.
+     */
+    private fun coroutineSwitch() {
+        Log.i("TAG", "coroutineSwitch: ${Thread.currentThread().name} ")
+        //协程中切线程和 线程池 切换线程很像.
+        val threadPool = Executors.newCachedThreadPool()
+        threadPool.execute {
+            /// 这里是个Runnable 的对象.
+            Log.i("TAG", "execute: ${Thread.currentThread().name}")
+        }
+        //Executor 本质是个线程池.
+
+        /**
+         *   CoroutineScope 比Executors 更强大,里面有个线程池.线程池只是它功能的一部分.
+         *   CoroutineScope的参数是一个 CoroutineContext 对象.这个参数会提供各种上下文信息,包括使用哪个线程池.
+         *   协程中 CoroutineScope 和 CoroutineContext 是非常重要的两个核心知识. 后续会慢慢展开.
+         */
+
+        val coroutineScope1 = CoroutineScope(EmptyCoroutineContext)
+        //
+        val coroutineScope = CoroutineScope(Dispatchers.IO)
+        /// 启动一个协程:launch {任务}  启动一个协程效果和 threadPool.execute {} 效果类似.
+        coroutineScope.launch {
+            /**
+             * 因为我们现在学习的是JVM上的协程,所以开启一个协程实际上还是在切线程. 至于是切到哪个线程是 coroutineScope 决定的.
+             * 和 Executor 一样都是 把代码块执行的任务丢给 线程池.
+             */
+            Log.i("TAG", "coroutineScope-launch: ${Thread.currentThread().name}")
+        }
+        /**
+         * 打印观察线程名称:
+         * 00:21:15.114  I  coroutineSwitch: main
+         * 00:21:15.150  I  execute: pool-2-thread-1
+         * 00:21:15.151  I  coroutineScope-launch: DefaultDispatcher-worker-2
+         */
+
+        ///以上就是协程最基本的切线程的用法和传统API里面的Executor 的用法非常相似
+
+    }
+
 
     /**
      * 1.协程的概念和线程的切换.
