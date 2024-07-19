@@ -13,6 +13,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.util.concurrent.Executors
 import kotlin.concurrent.thread
+import kotlin.coroutines.ContinuationInterceptor
 import kotlin.coroutines.EmptyCoroutineContext
 
 class MainActivity : AppCompatActivity() {
@@ -27,6 +28,56 @@ class MainActivity : AppCompatActivity() {
         }
 
         coroutineSwitch()
+
+    }
+
+    /**
+     * 3.线程池的配置
+     */
+    private fun threadPoolConfig() {
+        val threadPool = Executors.newCachedThreadPool()
+        threadPool.execute {
+            Log.i("TAG", "threadPoolConfig: ${Thread.currentThread().name}")
+        }
+
+        //协程默认配置--这种最简单的配置来启动协程,那么协程就会用默认的线程池中的某个线程来执行任务.
+        val coroutineScope = CoroutineScope(EmptyCoroutineContext)
+        coroutineScope.launch {
+            Log.i("TAG", "coroutineScope: ${Thread.currentThread().name}")
+        }
+
+        /**
+         * 协程中这里 "管理任务执行的线程"的工具 叫 ContinuationInterceptor
+         * 执意 继续 拦截器. 也就是 拦截一下,做点别的工作, 在继续执行. 实际上就是切个线程在往下执行.
+         * 协程官方的 实现就是切了线程的.
+         * 协程给我们提供了四个 ContinuationInterceptor 在哪里呢?
+         *
+         * public actual object Dispatchers {
+         *     @JvmStatic
+         *     public actual val Default: CoroutineDispatcher = DefaultScheduler
+         *
+         *     @JvmStatic
+         *     public actual val Main: MainCoroutineDispatcher get() = MainDispatcherLoader.dispatcher
+         *
+         *     @JvmStatic
+         *     public actual val Unconfined: CoroutineDispatcher = kotlinx.coroutines.Unconfined
+         *
+         *     @JvmStatic
+         *     public val IO: CoroutineDispatcher = DefaultIoScheduler
+         *
+         *     ...
+         *     }
+         *   Default  Main    Unconfined  IO 这4个.
+         *
+         *   为何叫 Dispatchers 不叫 ContinuationInterceptor ,因为 并不是直接实现 ContinuationInterceptor
+         *   而是实现了ContinuationInterceptor唯一的子类. CoroutineDispatcher 协程 调度器,调度什么呢?调度任务,也就是切线程.
+         *   虽然 ContinuationInterceptor 名字比较抽象,但是 CoroutineDispatcher 名字就比较好理解了.
+         *   它和线程API里的Executor 的定位属于一类,都是管理线程的.用Dispatchers不仅可以切换到后台线程也可以切换到 UI 线程和主线程.
+         *   而Executor 只负责后台线程.
+         *   这就是 为何叫 Dispatchers,因为内部装了几个 CoroutineDispatcher 的对象
+         *   它俩的更深层次在后续章节.
+         *   17分
+         */
 
     }
 
