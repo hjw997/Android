@@ -11,6 +11,8 @@ import androidx.core.view.WindowInsetsCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.newFixedThreadPoolContext
+import kotlinx.coroutines.newSingleThreadContext
 import java.util.concurrent.Executors
 import kotlin.concurrent.thread
 import kotlin.coroutines.ContinuationInterceptor
@@ -26,13 +28,17 @@ class MainActivity : AppCompatActivity() {
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
             insets
         }
+        //threadSwitch01()
+        //coroutineSwitch()
+        //threadPoolConfig()
 
-        coroutineSwitch()
+
+
 
     }
 
     /**
-     * 3.线程池的配置
+     * 3.线程池的配置 ContinuationInterceptor
      */
     private fun threadPoolConfig() {
         val threadPool = Executors.newCachedThreadPool()
@@ -70,14 +76,88 @@ class MainActivity : AppCompatActivity() {
          *   Default  Main    Unconfined  IO 这4个.
          *
          *   为何叫 Dispatchers 不叫 ContinuationInterceptor ,因为 并不是直接实现 ContinuationInterceptor
-         *   而是实现了ContinuationInterceptor唯一的子类. CoroutineDispatcher 协程 调度器,调度什么呢?调度任务,也就是切线程.
+         *   而是实现了ContinuationInterceptor唯一的子类. CoroutineDispatcher--- 协程 调度器 ,调度什么呢?调度任务,也就是切线程.
          *   虽然 ContinuationInterceptor 名字比较抽象,但是 CoroutineDispatcher 名字就比较好理解了.
-         *   它和线程API里的Executor 的定位属于一类,都是管理线程的.用Dispatchers不仅可以切换到后台线程也可以切换到 UI 线程和主线程.
+         *   它和线程API里的 Executor 的定位属于一类,都是管理线程的.用Dispatchers不仅可以切换到后台线程也可以切换到 UI 线程和主线程.
          *   而Executor 只负责后台线程.
          *   这就是 为何叫 Dispatchers,因为内部装了几个 CoroutineDispatcher 的对象
          *   它俩的更深层次在后续章节.
          *   17分
          */
+
+        /**
+         * 如果CoroutineScope 没有指定 CoroutineContext 那么默认使用的是 Dispatchers.Default
+         * Dispatchers.Default 它提供了一个全局的线程池来管理任务.
+         * 用它来启动协程会在它提供的线程池里去运行.
+         * 跟他类似的 还有一个 Dispatchers.IO,也是提供一个后台线程池.
+         *
+         * Dispatchers.Default 和 Dispatchers.IO 区别:
+         * Dispatchers.Default : 处理计算密集型的,计算密集型指的是需要大量的CPU资源来做运算,
+         * 比如滤镜算法图片处理-CPU计算充满整个处理流程, 此调度程序经过了专门优化，适合在主线程之外执行占用大量 CPU 资源的工作。用例示例包括对列表排序和解析 JSON。
+         * Dispatchers.Default 的线程数是个CPU核心数是相等的,有几个CPU核就有几个线程. 因为线程太多反而会降低效率.
+         * 比如如果是8个核心的CPU,如果开了8个以上的线程,线程执行是需要切换的,切换线程是比较耗时的.
+         *
+         *
+         * Dispatchers.IO : 是处理IO密集型的. IO 指的是内存以外世界交互的输入输出 如网络的读写,磁盘数据的读写等,
+         * 虽然耗时但是CPU资源不会被占用太多.CPU 运行速度是很快的.大部分时间都在等待.
+         * 特点:工作期间CPU 是闲置的.
+         * 内存和磁盘读写 两者相比,内存读写是非常快的,CUP 读取 IO 时候大部分时间CPU是闲置的,读写这些是磁盘去读写的,包括网络数据是网卡来读写的.
+         * - 此调度程序经过了专门优化，适合在主线程之外执行磁盘或网络 I/O。示例包括使用Room组件、从文件中读取数据或向文件中写入数据，以及运行任何网络操作。
+         *  Dispatchers.IO 线程池有64个线程.超过 64核那么就多少CPU 就有多少个线程. 因为IO 读写,CPU其实是闲置的.
+         *
+         *  这俩本质区别就是内部线程池的线程数量不同. 知道了以上这些以后就 不在迷惑 到底用哪个 Default 还是 IO
+         *  和磁盘交互,文件读写 网络访问 用IO
+         *  图片处理等,媒体编解码,代码字符串拼接等等 在内存中处理 用Default.
+         *
+         *  协程提供的后台线程池的 ContinuationInterceptor 就这两个.
+         */
+        // 什么不设置 下面这个也是 Default的.
+         CoroutineScope(EmptyCoroutineContext).launch {
+
+         }
+        //怎么用? 直接传入 CoroutineContext 对象. Dispatchers.IO 这样启动的协程就是 Dispatchers.IO控制
+        CoroutineScope(Dispatchers.IO).launch {
+
+        }
+        /// 这样启动的协程就是由 Dispatchers.Default 来控制的.什么不设置 EmptyCoroutineContext 也是 Default的.
+        CoroutineScope(Dispatchers.Default).launch {
+
+        }
+
+        /// coroutineScope1全局的 EmptyCoroutineContext 来控制.--可复用
+        val coroutineScope1 = CoroutineScope(EmptyCoroutineContext)
+        /// 也可以在 launch 的时候设置 --这次的在 launch 设置的线程池中.
+        coroutineScope1.launch(Dispatchers.Default){
+
+        }
+
+        coroutineScope1.launch {
+            //使用的默认 设置 CoroutineScope(EmptyCoroutineContext)
+        }
+
+        /**
+         * Dispatchers.Main - 使用此调度程序可在 Android 主线程上运行协程。此调度程序只能用于与界面交互和执行快速工作。
+         *  安卓的 UI 线程.如果是服务器程序这个就会报错了.
+         */
+        /// 在主线程 -
+        CoroutineScope(Dispatchers.Main).launch {
+
+        }
+
+        /// 如果要自己创建线程池 如下: 协程也提供了.报黄 有精细注解,意思是容易出错.--因为不使用时候要关闭.
+        val newPool = newFixedThreadPoolContext(4, "MyFixedThreadPool")
+        newSingleThreadContext("singleThread") //单线程.  所以不用线程数
+        ///....使用中..
+        CoroutineScope(newPool).launch {
+            //...... 在自己创建的线程池中做事,
+        }
+        newPool.close() //用完要关闭(要在合适的位置)
+        // 为何那俩 Default 和 IO  不用关闭 因为 是全局的
+        /// 但是自定义的这种线程池基本用不上.
+        // 37分:https://www.bilibili.com/cheese/play/ep778877?csource=private_space_class_null&spm_id_from=333.999.0.0&pagetype=payback
+        ///还有一个 Unconfined  不进行限制 ,用它启动的协程,直接就开始执行里面的代码了--不切线程
+        /// Unconfined 不会把 挂起函数自动切回来. 而其他的会把线程切回来.
+        /// 实际开发中不会用到.
 
     }
 
